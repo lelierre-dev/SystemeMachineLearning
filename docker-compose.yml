@@ -1,21 +1,39 @@
 services:
-  db:
+  postgres:
     image: postgres:16
-    environment:
-      # TODO: définir l'utilisateur, le mot de passe et le nom de la base
-      POSTGRES_USER: demo
-      POSTGRES_PASSWORD: demo
-      POSTGRES_DB: demo
+    env_file: .env          # Utiliser les variables définies dans .env
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d   # Monter les scripts d'init
+      - pgdata:/var/lib/postgresql/data
     ports:
-      # TODO: exposer le port PostgreSQL vers l'hôte
       - "5432:5432"
 
   api:
-    # TODO: construire l'image à partir du Dockerfile dans ./api
     build: ./api
     ports:
-      # TODO: exposer le port 8000 du conteneur vers l'hôte
       - "8000:8000"
     depends_on:
-      # TODO: indiquer que l'API dépend de la base de données
-      - db
+      - postgres
+    env_file: .env          # Réutiliser les mêmes identifiants Postgres
+
+  prefect:
+    build: ./services/prefect
+    depends_on:
+      - postgres
+    env_file: .env          # Réutiliser les mêmes identifiants Postgres
+    environment:
+      PREFECT_API_URL: http://0.0.0.0:4200/api
+      PREFECT_UI_URL: http://0.0.0.0:4200
+      PREFECT_LOGGING_LEVEL: INFO
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./services/prefect:/opt/prefect/flows
+      - ./data:/data:ro     # Rendre les CSV accessibles au conteneur Prefect
+
+volumes:
+  pgdata:
+
