@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      # TODO: définir l'utilisateur, le mot de passe et le nom de la base
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: demo
+    ports:
+      # TODO: exposer le port PostgreSQL vers l'hôte
+      - "5432:5432"
+
+  api:
+    # TODO: construire l'image à partir du Dockerfile dans ./api
+    build: ./api
+    ports:
+      # TODO: exposer le port 8000 du conteneur vers l'hôte
+      - "8000:8000"
+    depends_on:
+      # TODO: indiquer que l'API dépend de la base de données
+      - db
