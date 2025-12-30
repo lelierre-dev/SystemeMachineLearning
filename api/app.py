@@ -6,19 +6,24 @@ import mlflow.pyfunc
 import pandas as pd
 import os
 from typing import Any
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
+import time
 
 app = FastAPI(title="StreamFlow Churn Prediction API")
 
 # --- Config ---
 REPO_PATH = "/repo"
-MODEL_NAME = "streamflow_churn"  # <-- ton modèle MLflow enregistré
+MODEL_NAME = "streamflow_churn"
 MODEL_URI = f"models:/{MODEL_NAME}/Production"
 
-# Important: depuis un conteneur -> mlflow:5000 (pas localhost:5001)
 MLFLOW_TRACKING_URI = os.environ.get("MLFLOW_TRACKING_URI", "http://mlflow:5000")
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
-# Init Feast + MLflow model
+# Metrics Prometheus
+REQUEST_COUNT = Counter("api_requests_total", "Total number of API requests")
+REQUEST_LATENCY = Histogram("api_request_latency_seconds", "Latency of API requests in seconds")
+
 try:
     store = FeatureStore(repo_path=REPO_PATH)
     model = mlflow.pyfunc.load_model(MODEL_URI)
@@ -37,7 +42,6 @@ def health():
     return {"status": "ok"}
 
 
-# (Optionnel) ton endpoint existant pour debug
 @app.get("/features/{user_id}")
 def get_features(user_id: str):
     if store is None:
@@ -54,7 +58,6 @@ def get_features(user_id: str):
         entity_rows=[{"user_id": user_id}],
     ).to_dict()
 
-    # Simplifie (clé -> scalaire)
     simple = {name: values[0] for name, values in feature_dict.items()}
 
     return {"user_id": user_id, "features": simple}
@@ -62,6 +65,9 @@ def get_features(user_id: str):
 
 @app.post("/predict")
 def predict(payload: UserPayload):
+    start_time = time.time()
+    REQUEST_COUNT.inc()
+
     if store is None or model is None:
         return {"error": "Model or feature store not initialized"}
 
@@ -119,8 +125,15 @@ def predict(payload: UserPayload):
         # numpy array / list
         pred_value = y_pred[0]
 
+    REQUEST_LATENCY.observe(time.time() - start_time)
+
     return {
         "user_id": payload.user_id,
         "prediction": int(pred_value),
         "features_used": X.to_dict(orient="records")[0],
     }
+
+
+@app.get("/metrics")
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
