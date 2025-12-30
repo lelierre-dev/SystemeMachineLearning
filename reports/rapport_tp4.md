@@ -11,7 +11,7 @@
 changement du port sur 5001 pour Mlflow car un process systeme MacOS utilise déjà le 5000
 
 
-## Exercice 2 
+## Exercice 2 : Créer un script d’entraînement + tracking MLflow (baseline RandomForest)
 
 ![alt text](image-49.png)
 
