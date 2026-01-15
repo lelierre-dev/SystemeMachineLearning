@@ -78,7 +78,7 @@ Le drift mesuré (0,06) dépasse le seuil (0,02), donc le flow a déclenché un 
 
 
 
-Exercice 5 : Redémarrage API pour charger le nouveau modèle Production + test /predict
+## Exercice 5 : Redémarrage API pour charger le nouveau modèle Production + test /predict
 
 ```
 (base) MacBook-Pro-de-Yohan :: Documents/3Aschool/systemeMachineLearning » 
