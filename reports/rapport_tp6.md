@@ -110,8 +110,33 @@ curl -s -X POST "http://localhost:8000/predict" \
 L’API doit être redémarrée car elle charge le modèle au démarrage depuis la production, donc sans redémarrage elle continue d’utiliser l’ancienne version même si une nouvelle a été promue.
 
 
-Execice 6 : CI GitHub Actions (smoke + unit) avec Docker Compose
+## Execice 6 : CI GitHub Actions (smoke + unit) avec Docker Compose
 
+![alt text](image-74.png)
+
+
+On démarre Docker Compose dans la CI pour exécuter un smoke test d’intégration qui vérifie que les services (Postgres/Feast/MLflow/API) démarrent correctement ensemble et que l’API répond au healthcheck.
+
+
+## Execice 7 : Synthèse finale : boucle complète drift → retrain → promotion → serving
+
+#### Synthèse
+
+- Mesure du drift et seuil 0,02 : 
+Le flow monitor_flow calcule un rapport Evidently entre deux périodes (référence vs courant) et en extrait drift_share, proportion de features déclarées en dérive. Si drift_share >= 0,02, on déclenche le réentraînement (ici seuil abaissé pour forcer le test. En pratique on placerait un seuil plus élevé, selon la sensibilité métier et le bruit attendu).
+
+- Décision de promotion dans train_and_compare_flow :
+Le flow entraîne un candidat sur l’as_of courant, évalue la métrique de validation (AUC), puis la compare au modèle Production (val_auc prod). La promotion n’a lieu que si l’amélioration dépasse un delta minimal (ex. candidate_auc >= prod_auc + delta). Sinon, le candidat est rejeté et le modèle Production reste inchangé.
+
+- Rôle de Prefect vs GitHub Actions
+
+    - Prefect orchestre les jobs de données/ML (ingestion, drift, entraînement, comparaison, promotion) et exécute la logique métier (seuils, décisions).
+    - GitHub Actions gère l’intégration continue : lancement des tests unitaires/smoke, démarrage éphémère de la stack Docker Compose, vérification que l’API répond. La CI ne porte pas la logique métier ni les long-running jobs, mais assure la qualité du code et la capacité de démarrage.
+
+Limites / améliorations
+- CI et entraînement complet : la CI ne doit pas lancer un entraînement lourd (temps, coût, dépendances données/MLflow/Feast). Elle doit rester rapide et déterministe.
+- Tests manquants : tests unitaires plus fins sur la logique de décision (seuils, delta), tests de contrat/schéma sur les features, tests d’API contractuels (inputs/outputs), et tests de bout-en-bout légers avec données factices.
+- Approbation humaine / gouvernance : en production, la promotion automatique sans revue peut introduire des régressions. Des garde-fous (validation manuelle, seuils métier, canary, rollback facile) et des audits (qui a promu, pourquoi) sont souvent requis pour maîtriser le risque.
 
 
 
